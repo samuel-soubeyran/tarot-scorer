@@ -151,6 +151,17 @@
     color: var(--muted); border-radius: 9px; font-size: 1.2rem;
   }
 
+  /* Playing-this-round chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    padding: 8px 13px; border-radius: 999px; font-size: .9rem; font-weight: 600;
+    background: var(--surface-2); border: 1px solid var(--border); color: var(--muted);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip .seat { font-size: .72rem; opacity: .65; font-family: var(--font-display); }
+  .chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .chip.on .seat { opacity: .8; }
+
   .scoreboard { display: flex; flex-direction: column; gap: 8px; }
   .score-row {
     display: flex; align-items: center; gap: 12px;
@@ -162,6 +173,10 @@
     width: 22px; font-weight: 600; text-align: center;
   }
   .score-row .name { flex: 1; font-weight: 600; }
+  .score-row .bench {
+    font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--muted); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px;
+  }
   .score-row .pts {
     font-family: var(--font-display); font-variant-numeric: tabular-nums;
     font-weight: 600; font-size: 1.4rem;
@@ -180,6 +195,7 @@
   .rounds-table td { padding: 9px 6px; border-top: 1px solid var(--border); text-align: right; font-variant-numeric: tabular-nums; }
   .rounds-table td.pos { color: var(--pos); font-weight: 600; }
   .rounds-table td.neg { color: var(--neg); font-weight: 600; }
+  .rounds-table td.sit { color: var(--muted); opacity: .5; }
   .rounds-table strong { font-family: var(--font-display); font-weight: 600; }
   .round-meta { font-size: .75rem; color: var(--muted); margin-top: 2px; }
   .tag {
@@ -203,6 +219,7 @@
   .preview .headline { font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; margin-bottom: 9px; }
   .preview .headline.won { color: var(--pos); }
   .preview .headline.lost { color: var(--neg); }
+  .preview .headline.warn { color: var(--muted); }
   .preview .dist { display: flex; flex-wrap: wrap; gap: 6px 16px; }
   .preview .dist span { font-variant-numeric: tabular-nums; }
   .muted-note { font-size: .75rem; color: var(--muted); margin-top: 8px; }
@@ -212,6 +229,8 @@
   .top-actions { display: flex; gap: 8px; margin-bottom: 16px; }
   .top-actions button { flex: 1; }
   .hint { font-size: .76rem; color: var(--muted); margin-top: 5px; }
+  .rotation-note { font-size: .78rem; color: var(--muted); margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .rotation-note b { color: var(--text); font-weight: 600; }
 
   .btn-primary.danger { background: var(--neg); color: #fff; }
 
@@ -249,7 +268,10 @@
 <script>
 "use strict";
 
-const STORE = "tarot-game-v1";
+const STORE = "tarot-game-v2";
+const STORE_V1 = "tarot-game-v1";
+const MAX_PLAYERS = 10;
+const TABLE_SEATS = 5;              // most players at the table in one round
 const CONTRACTS = {
   petite:      { label: "Petite",       mult: 1 },
   garde:       { label: "Garde",        mult: 2 },
@@ -268,12 +290,50 @@ function load() {
     const s = JSON.parse(localStorage.getItem(STORE));
     if (s && s.players) return s;
   } catch (e) {}
-  return { started: false, players: [], rounds: [], draft: null };
+  const migrated = migrateV1();
+  if (migrated) return migrated;
+  return { started: false, players: [], rounds: [], nextId: 1 };
 }
+
+function migrateV1() {
+  try {
+    const old = JSON.parse(localStorage.getItem(STORE_V1));
+    if (!old || !old.players || !old.players.length) return null;
+    const players = old.players.map((p, i) => ({ id: i + 1, name: p.name }));
+    const allIds = players.map(p => p.id);
+    const rounds = (old.rounds || []).map(r => ({
+      players: [...allIds],
+      taker: r.taker + 1,
+      partner: r.partner === "" || r.partner == null ? "" : Number(r.partner) + 1,
+      contract: r.contract, bouts: r.bouts, takerPoints: r.takerPoints,
+      petit: r.petit, poignee: r.poignee, misere: r.misere, chelem: r.chelem,
+    }));
+    return { started: !!old.started, players, rounds, nextId: players.length + 1 };
+  } catch (e) { return null; }
+}
+
 function save() { localStorage.setItem(STORE, JSON.stringify(state)); }
 
+/* ---------- Roster helpers ---------- */
+function pName(id) { const p = state.players.find(x => x.id === id); return p ? p.name : "?"; }
+function orderedIds(idSet) { return state.players.filter(p => idSet.has(p.id)).map(p => p.id); }
+
+// Default set of players seated for the *next* round: a window of up to 5 that
+// advances by (N - window) seats each round, so whoever sat last round plays now.
+function rotationForRound(roundNumber) {
+  const N = state.players.length;
+  const w = Math.min(TABLE_SEATS, N);
+  const adv = N - w;
+  const start = adv === 0 ? 0 : ((roundNumber * adv) % N + N) % N;
+  const ids = [];
+  for (let k = 0; k < w; k++) ids.push(state.players[(start + k) % N].id);
+  return ids;
+}
+
 /* ---------- Scoring ---------- */
-function computeRound(r, playerCount) {
+function computeRound(r) {
+  const playing = r.players;
+  const pc = playing.length;
   const target = TARGET_BY_BOUTS[r.bouts];
   const diff = r.takerPoints - target;
   const made = diff >= 0;
@@ -283,41 +343,38 @@ function computeRound(r, playerCount) {
   const petitVal = r.petit === "attack" ? 10 : r.petit === "defense" ? -10 : 0;
   const contractScore = (25 + Math.abs(diff)) * mult * sign;
   const petitScore = petitVal * mult;
-
   const poigneeScore = POIGNEE[r.poignee] * sign;
   const misereScore = (r.misere === "attack" ? 1 : r.misere === "defense" ? -1 : 0) * MISERE_VALUE;
   const chelemScore = CHELEM[r.chelem] || 0;
 
   const attackerTotal = contractScore + petitScore + poigneeScore + misereScore + chelemScore;
 
-  const deltas = new Array(playerCount).fill(0);
+  const deltas = {};
+  playing.forEach(id => deltas[id] = 0);
   const t = r.taker;
-  const hasPartner = playerCount === 5 && r.partner !== "" && r.partner != null && Number(r.partner) !== t;
+  const hasPartner = pc === 5 && r.partner !== "" && r.partner != null && Number(r.partner) !== t;
 
-  if (playerCount === 3) {
+  const setDef = (takerMult) => {
+    playing.forEach(id => deltas[id] = -attackerTotal);
+    deltas[t] = takerMult * attackerTotal;
+  };
+  if (pc === 3) setDef(2);
+  else if (pc === 4) setDef(3);
+  else if (pc === 5 && hasPartner) {
+    playing.forEach(id => deltas[id] = -attackerTotal);
     deltas[t] = 2 * attackerTotal;
-    for (let i = 0; i < 3; i++) if (i !== t) deltas[i] = -attackerTotal;
-  } else if (playerCount === 4) {
-    deltas[t] = 3 * attackerTotal;
-    for (let i = 0; i < 4; i++) if (i !== t) deltas[i] = -attackerTotal;
-  } else if (playerCount === 5 && hasPartner) {
-    const p = Number(r.partner);
-    deltas[t] = 2 * attackerTotal;
-    deltas[p] = attackerTotal;
-    for (let i = 0; i < 5; i++) if (i !== t && i !== p) deltas[i] = -attackerTotal;
-  } else if (playerCount === 5) {
-    deltas[t] = 4 * attackerTotal;
-    for (let i = 0; i < 5; i++) if (i !== t) deltas[i] = -attackerTotal;
-  }
+    deltas[Number(r.partner)] = attackerTotal;
+  } else if (pc === 5) setDef(4);
 
   return { target, diff, made, mult, attackerTotal, deltas };
 }
 
 function totals() {
-  const t = new Array(state.players.length).fill(0);
+  const t = {};
+  state.players.forEach(p => t[p.id] = 0);
   for (const r of state.rounds) {
-    const res = computeRound(r, state.players.length);
-    res.deltas.forEach((d, i) => t[i] += d);
+    const res = computeRound(r);
+    for (const id in res.deltas) t[id] += res.deltas[id];
   }
   return t;
 }
@@ -337,7 +394,7 @@ function renderSetup() {
   app.innerHTML = `
     <div class="card">
       <h2>New game</h2>
-      <p class="hint" style="margin-bottom:14px">Deal in 3 to 5 players.</p>
+      <p class="hint" style="margin-bottom:14px">Add 3 to ${MAX_PLAYERS} players. With more than 5, they rotate in and out each round.</p>
       <div id="playerInputs"></div>
       <button class="btn-ghost btn-sm" id="addPlayer" style="width:100%;margin-top:4px">+ Add player</button>
       <hr class="divider">
@@ -357,6 +414,7 @@ function renderSetup() {
         ${vals.length > 3 ? `<button class="icon-btn" data-rm="${i}" aria-label="Remove player">×</button>` : ""}`;
       container.appendChild(row);
     });
+    document.getElementById("addPlayer").style.display = vals.length >= MAX_PLAYERS ? "none" : "";
   }
   drawInputs(names);
 
@@ -367,15 +425,16 @@ function renderSetup() {
   });
   document.getElementById("addPlayer").onclick = () => {
     const v = readVals();
-    if (v.length >= 5) return;
+    if (v.length >= MAX_PLAYERS) return;
     v.push(""); drawInputs(v);
   };
   document.getElementById("startGame").onclick = () => {
     const v = readVals().map(x => x.trim());
     const err = document.getElementById("setupErr");
     if (v.some(x => !x)) { err.textContent = "Every player needs a name."; return; }
-    if (v.length < 3 || v.length > 5) { err.textContent = "Need 3 to 5 players."; return; }
-    state.players = v.map(n => ({ name: n }));
+    if (v.length < 3 || v.length > MAX_PLAYERS) { err.textContent = `Need 3 to ${MAX_PLAYERS} players.`; return; }
+    state.players = v.map((n, i) => ({ id: i + 1, name: n }));
+    state.nextId = v.length + 1;
     state.started = true; state.rounds = [];
     save(); render();
   };
@@ -383,8 +442,12 @@ function renderSetup() {
 
 function renderGame() {
   const t = totals();
-  const order = state.players.map((p, i) => ({ i, name: p.name, pts: t[i] })).sort((a, b) => b.pts - a.pts);
-  const maxPts = Math.max(...t);
+  const N = state.players.length;
+  const rotates = N > TABLE_SEATS;
+  const nextPlaying = new Set(rotationForRound(state.rounds.length));
+  const order = state.players.map(p => ({ id: p.id, name: p.name, pts: t[p.id] })).sort((a, b) => b.pts - a.pts);
+  const maxPts = Math.max(...order.map(o => o.pts));
+  const benchNames = state.players.filter(p => !nextPlaying.has(p.id)).map(p => p.name);
 
   app.innerHTML = `
     <div class="top-actions">
@@ -399,9 +462,11 @@ function renderGame() {
           <div class="score-row ${o.pts === maxPts && state.rounds.length ? "leader" : ""}">
             <div class="rank">${rank + 1}</div>
             <div class="name">${esc(o.name)}</div>
+            ${rotates && !nextPlaying.has(o.id) ? `<div class="bench">sits next</div>` : ""}
             <div class="pts ${o.pts > 0 ? "pos" : o.pts < 0 ? "neg" : ""}">${fmt(o.pts)}</div>
           </div>`).join("")}
       </div>
+      ${rotates ? `<div class="rotation-note">Next round the table is <b>${esc(state.players.filter(p => nextPlaying.has(p.id)).map(p => p.name).join(", "))}</b>${benchNames.length ? ` — sitting out: ${esc(benchNames.join(", "))}` : ""}. You can change who plays when you add the round.</div>` : ""}
     </div>
 
     <div class="card">
@@ -412,7 +477,7 @@ function renderGame() {
   document.getElementById("newRound").onclick = () => openRoundForm();
   document.getElementById("resetGame").onclick = async () => {
     if (await showConfirm("Reset and start a new game? Current scores will be lost.", { yes: "Reset", danger: true })) {
-      state = { started: false, players: state.players.map(p => ({ name: p.name })), rounds: [], draft: null };
+      state = { started: false, players: state.players.map(p => ({ id: p.id, name: p.name })), rounds: [], nextId: state.nextId };
       save(); render();
     }
   };
@@ -426,29 +491,32 @@ function renderGame() {
 }
 
 function roundsTable() {
-  const names = state.players.map(p => p.name);
   return `
   <div style="overflow-x:auto">
   <table class="rounds-table">
     <thead><tr>
       <th>#</th>
-      ${names.map(n => `<th>${esc(shortName(n))}</th>`).join("")}
+      ${state.players.map(p => `<th>${esc(shortName(p.name))}</th>`).join("")}
       <th></th>
     </tr></thead>
     <tbody>
       ${state.rounds.map((r, idx) => {
-        const res = computeRound(r, state.players.length);
+        const res = computeRound(r);
         return `<tr>
           <td>
             <strong>${idx + 1}</strong>
-            <div class="round-meta">${esc(names[r.taker])} · ${CONTRACTS[r.contract].label}${res.made ? "" : " ✗"}
+            <div class="round-meta">${esc(pName(r.taker))} · ${CONTRACTS[r.contract].label}${res.made ? "" : " ✗"}
             ${r.petit !== "none" ? '<span class="tag">petit</span>' : ""}
             ${r.poignee !== "none" ? '<span class="tag">poignée</span>' : ""}
             ${r.misere !== "none" ? '<span class="tag">misère</span>' : ""}
             ${r.chelem !== "none" ? '<span class="tag">chelem</span>' : ""}
             </div>
           </td>
-          ${res.deltas.map(d => `<td class="${d > 0 ? "pos" : d < 0 ? "neg" : ""}">${fmt(d)}</td>`).join("")}
+          ${state.players.map(p => {
+            if (!(p.id in res.deltas)) return `<td class="sit">·</td>`;
+            const d = res.deltas[p.id];
+            return `<td class="${d > 0 ? "pos" : d < 0 ? "neg" : ""}">${fmt(d)}</td>`;
+          }).join("")}
           <td style="white-space:nowrap">
             <button class="btn-ghost btn-sm" data-edit="${idx}" style="padding:4px 7px" aria-label="Edit round">✎</button>
             <button class="btn-danger btn-sm" data-del="${idx}" style="padding:4px 7px" aria-label="Delete round">✕</button>
@@ -462,29 +530,24 @@ function roundsTable() {
 
 /* ---------- Round form ---------- */
 function openRoundForm(editIndex) {
-  const pc = state.players.length;
   const editing = editIndex != null && state.rounds[editIndex];
   const r0 = editing ? state.rounds[editIndex] : null;
-  const opts = state.players.map((p, i) => `<option value="${i}">${esc(p.name)}</option>`).join("");
+
+  const selected = new Set(editing ? r0.players : rotationForRound(state.rounds.length));
+  let takerVal = editing ? r0.taker : orderedIds(selected)[0];
+  let partnerVal = editing ? (r0.partner === "" ? "" : Number(r0.partner)) : "";
 
   app.innerHTML = `
     <div class="card">
       <h2>${editing ? "Edit round " + (editIndex + 1) : "New round"}</h2>
 
       <div class="field">
-        <label>Taker</label>
-        <select id="taker">${opts}</select>
+        <label>Playing this round (3–5)</label>
+        <div class="chips" id="playing"></div>
+        <p class="hint" id="playCount"></p>
       </div>
 
-      ${pc === 5 ? `
-      <div class="field">
-        <label>Partner (called king)</label>
-        <select id="partner">
-          <option value="">— Taker plays alone —</option>
-          ${opts}
-        </select>
-        <p class="hint">Whoever holds the called king. Choose “alone” if the taker called their own.</p>
-      </div>` : ""}
+      <div id="tpFields"></div>
 
       <div class="field">
         <label>Contract</label>
@@ -557,8 +620,6 @@ function openRoundForm(editIndex) {
     </div>`;
 
   if (editing) {
-    document.getElementById("taker").value = r0.taker;
-    if (pc === 5) document.getElementById("partner").value = r0.partner;
     setSeg("contract", r0.contract);
     setSeg("bouts", r0.bouts);
     document.getElementById("takerPoints").value = r0.takerPoints;
@@ -566,6 +627,55 @@ function openRoundForm(editIndex) {
     document.getElementById("poignee").value = r0.poignee;
     document.getElementById("misere").value = r0.misere;
     document.getElementById("chelem").value = r0.chelem;
+  }
+
+  const playingEl = document.getElementById("playing");
+  const tpEl = document.getElementById("tpFields");
+  const playCountEl = document.getElementById("playCount");
+
+  function renderChips() {
+    playingEl.innerHTML = state.players.map((p, i) =>
+      `<button type="button" class="chip ${selected.has(p.id) ? "on" : ""}" data-id="${p.id}">
+        <span class="seat">${i + 1}</span>${esc(p.name)}</button>`).join("");
+    playCountEl.textContent = `${selected.size} of ${TABLE_SEATS} seats used`;
+    playingEl.querySelectorAll(".chip").forEach(c => c.onclick = () => toggle(Number(c.dataset.id)));
+  }
+
+  function toggle(id) {
+    if (selected.has(id)) {
+      selected.delete(id);
+    } else {
+      if (selected.size >= TABLE_SEATS) { document.getElementById("roundErr").textContent = `Only ${TABLE_SEATS} can play a round.`; return; }
+      selected.add(id);
+    }
+    document.getElementById("roundErr").textContent = "";
+    if (!selected.has(takerVal)) takerVal = orderedIds(selected)[0];
+    if (partnerVal !== "" && !selected.has(partnerVal)) partnerVal = "";
+    renderChips(); renderTP(); updatePreview();
+  }
+
+  function renderTP() {
+    const sel = orderedIds(selected);
+    const opts = sel.map(id => `<option value="${id}">${esc(pName(id))}</option>`).join("");
+    let html = `<div class="field"><label>Taker</label><select id="taker">${opts}</select></div>`;
+    if (sel.length === 5) {
+      const popts = sel.map(id => `<option value="${id}">${esc(pName(id))}</option>`).join("");
+      html += `<div class="field">
+        <label>Partner (called king)</label>
+        <select id="partner"><option value="">— Taker plays alone —</option>${popts}</select>
+        <p class="hint">Whoever holds the called king. Choose “alone” if the taker called their own.</p>
+      </div>`;
+    }
+    tpEl.innerHTML = html;
+    const takerEl = document.getElementById("taker");
+    if (takerVal != null && selected.has(takerVal)) takerEl.value = String(takerVal);
+    takerVal = Number(takerEl.value);
+    takerEl.onchange = () => { takerVal = Number(takerEl.value); updatePreview(); };
+    const partnerEl = document.getElementById("partner");
+    if (partnerEl) {
+      partnerEl.value = partnerVal === "" ? "" : String(partnerVal);
+      partnerEl.onchange = () => { partnerVal = partnerEl.value === "" ? "" : Number(partnerEl.value); updatePreview(); };
+    }
   }
 
   app.querySelectorAll(".segmented").forEach(seg => {
@@ -577,16 +687,15 @@ function openRoundForm(editIndex) {
       updatePreview();
     });
   });
-  ["taker", "partner", "takerPoints", "poignee", "misere", "chelem"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener("input", updatePreview);
-  });
+  ["takerPoints", "poignee", "misere", "chelem"].forEach(id =>
+    document.getElementById(id).addEventListener("input", updatePreview));
 
   function readForm() {
     const seg = id => document.querySelector(`#${id} button.active`).dataset.v;
     return {
-      taker: Number(document.getElementById("taker").value),
-      partner: pc === 5 ? document.getElementById("partner").value : "",
+      players: orderedIds(selected),
+      taker: takerVal,
+      partner: selected.size === 5 ? partnerVal : "",
       contract: seg("contract"),
       bouts: Number(seg("bouts")),
       takerPoints: Math.max(0, Math.min(91, Number(document.getElementById("takerPoints").value) || 0)),
@@ -599,27 +708,36 @@ function openRoundForm(editIndex) {
 
   function updatePreview() {
     const r = readForm();
-    const res = computeRound(r, pc);
     document.getElementById("targetHint").textContent = `Target to win: ${TARGET_BY_BOUTS[r.bouts]} points`;
-    const names = state.players.map(p => p.name);
+    const box = document.getElementById("preview");
+    if (r.players.length < 3 || r.players.length > 5) {
+      box.innerHTML = `<div class="headline warn">Select 3 to 5 players to score this round.</div>`;
+      return;
+    }
+    const res = computeRound(r);
     const gap = Math.abs(res.diff);
-    document.getElementById("preview").innerHTML = `
+    box.innerHTML = `
       <div class="headline ${res.made ? "won" : "lost"}">
         ${res.made ? "Contract made" : "Contract failed"} — ${res.made ? "+" : "−"}${gap} pts vs target
       </div>
       <div class="dist">
-        ${res.deltas.map((d, i) =>
-          `<span><strong>${esc(names[i])}</strong>: <span class="${d > 0 ? "pts pos" : d < 0 ? "pts neg" : ""}">${fmt(d)}</span></span>`).join("")}
+        ${r.players.map(id =>
+          `<span><strong>${esc(pName(id))}</strong>: <span class="${res.deltas[id] > 0 ? "pts pos" : res.deltas[id] < 0 ? "pts neg" : ""}">${fmt(res.deltas[id])}</span></span>`).join("")}
       </div>
       <div class="muted-note">Base value: ${fmt(Math.abs(res.attackerTotal))} × contract distribution</div>`;
   }
+
+  renderChips();
+  renderTP();
   updatePreview();
 
   document.getElementById("cancelRound").onclick = () => render();
   document.getElementById("saveRound").onclick = () => {
     const r = readForm();
-    if (pc === 5 && r.partner !== "" && Number(r.partner) === r.taker) {
-      document.getElementById("roundErr").textContent = "Partner can't be the taker. Choose another player or “plays alone”.";
+    const err = document.getElementById("roundErr");
+    if (r.players.length < 3 || r.players.length > 5) { err.textContent = "Select 3 to 5 players for this round."; return; }
+    if (r.players.length === 5 && r.partner !== "" && Number(r.partner) === r.taker) {
+      err.textContent = "Partner can't be the taker. Choose another player or “plays alone”.";
       return;
     }
     if (editing) state.rounds[editIndex] = r;
