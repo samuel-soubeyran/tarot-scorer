@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f231c" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#e8e2cf" media="(prefers-color-scheme: light)">
+<title>Tarot Scorer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%83%8F%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    /* Light — aged parchment / card face */
+    --bg: #e8e2cf;
+    --surface: #f4f0e2;
+    --surface-2: #e5e0cd;
+    --border: #d0c9af;
+    --gilt: rgba(156, 124, 46, .45);
+    --text: #1f3a2f;
+    --muted: #6b7669;
+    --accent: #9c7c2e;
+    --accent-ink: #fbf7ea;
+    --accent-soft: #ece2c4;
+    --pos: #2e7d4f;
+    --neg: #b23b3b;
+    --shadow: 0 1px 2px rgba(40,30,10,.10), 0 6px 20px rgba(40,30,10,.06);
+    --radius: 12px;
+    --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      /* Dark — card-table felt */
+      --bg: #0f231c;
+      --surface: #16352a;
+      --surface-2: #1d4133;
+      --border: #295141;
+      --gilt: rgba(212, 175, 106, .38);
+      --text: #ece5d1;
+      --muted: #93a493;
+      --accent: #d4af6a;
+      --accent-ink: #10241d;
+      --accent-soft: #24422f;
+      --pos: #6bd39a;
+      --neg: #e8837e;
+      --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.28);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #e8e2cf; --surface: #f4f0e2; --surface-2: #e5e0cd; --border: #d0c9af;
+    --gilt: rgba(156,124,46,.45); --text: #1f3a2f; --muted: #6b7669;
+    --accent: #9c7c2e; --accent-ink: #fbf7ea; --accent-soft: #ece2c4;
+    --pos: #2e7d4f; --neg: #b23b3b;
+    --shadow: 0 1px 2px rgba(40,30,10,.10), 0 6px 20px rgba(40,30,10,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f231c; --surface: #16352a; --surface-2: #1d4133; --border: #295141;
+    --gilt: rgba(212,175,106,.38); --text: #ece5d1; --muted: #93a493;
+    --accent: #d4af6a; --accent-ink: #10241d; --accent-soft: #24422f;
+    --pos: #6bd39a; --neg: #e8837e;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.28);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    font-family: var(--font-ui);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    margin: 0;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 580px; margin: 0 auto; padding: 20px 16px 72px; }
+
+  header { padding: 6px 0 20px; }
+  .wordmark { display: flex; align-items: baseline; gap: 10px; }
+  .wordmark h1 {
+    font-family: var(--font-display);
+    font-size: 2rem; font-weight: 600; letter-spacing: -.01em; line-height: 1;
+    margin: 0;
+  }
+  .wordmark .scorer {
+    font-family: var(--font-ui); font-size: .72rem; font-weight: 700;
+    letter-spacing: .28em; text-transform: uppercase; color: var(--accent);
+    padding-bottom: 3px;
+  }
+  .suitline {
+    display: flex; align-items: center; gap: 10px; margin-top: 10px;
+    font-size: .78rem; color: var(--muted);
+  }
+  .suitline .glyphs { color: var(--accent); letter-spacing: 4px; font-size: .95rem; }
+  .suitline .rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--gilt), transparent); }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  h2 {
+    font-family: var(--font-display); font-size: 1.15rem; font-weight: 600;
+    margin: 0 0 14px; letter-spacing: -.01em;
+  }
+  label {
+    display: block; font-size: .72rem; color: var(--muted); margin-bottom: 6px;
+    font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  }
+  input, select {
+    width: 100%; padding: 11px 12px; font-size: 1rem;
+    background: var(--surface-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 9px;
+    font-family: inherit; -webkit-appearance: none; appearance: none;
+  }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M6 8 0 0h12z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  .field { margin-bottom: 15px; }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+
+  button {
+    font-family: var(--font-ui); font-size: 1rem; font-weight: 600;
+    border: none; border-radius: 9px; padding: 12px 16px;
+    cursor: pointer; transition: transform .05s ease, filter .15s ease;
+    color: var(--text);
+  }
+  button:active { transform: scale(.985); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-primary { background: var(--accent); color: var(--accent-ink); width: 100%; }
+  .btn-primary:hover { filter: brightness(1.05); }
+  .btn-ghost { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+  .btn-sm { padding: 8px 12px; font-size: .85rem; }
+  .btn-danger { background: transparent; color: var(--neg); }
+
+  .player-input-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .player-input-row input { flex: 1; }
+  .player-input-row .idx {
+    width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .8rem; font-weight: 700; font-family: var(--font-display);
+    border: 1px solid var(--gilt);
+  }
+  .icon-btn {
+    flex: 0 0 auto; width: 42px; padding: 0; height: 44px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    color: var(--muted); border-radius: 9px; font-size: 1.2rem;
+  }
+
+  .scoreboard { display: flex; flex-direction: column; gap: 8px; }
+  .score-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 13px 14px; background: var(--surface-2);
+    border-radius: 9px; border: 1px solid var(--border);
+  }
+  .score-row .rank {
+    font-family: var(--font-display); font-size: 1rem; color: var(--muted);
+    width: 22px; font-weight: 600; text-align: center;
+  }
+  .score-row .name { flex: 1; font-weight: 600; }
+  .score-row .pts {
+    font-family: var(--font-display); font-variant-numeric: tabular-nums;
+    font-weight: 600; font-size: 1.4rem;
+  }
+  .score-row.leader { border-color: var(--gilt); background: var(--accent-soft); }
+  .score-row.leader .rank { color: var(--accent); }
+  .pts.pos { color: var(--pos); }
+  .pts.neg { color: var(--neg); }
+
+  .rounds-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  .rounds-table th {
+    text-align: right; color: var(--muted); font-weight: 700; padding: 6px;
+    font-size: .68rem; text-transform: uppercase; letter-spacing: .05em;
+  }
+  .rounds-table th:first-child, .rounds-table td:first-child { text-align: left; }
+  .rounds-table td { padding: 9px 6px; border-top: 1px solid var(--border); text-align: right; font-variant-numeric: tabular-nums; }
+  .rounds-table td.pos { color: var(--pos); font-weight: 600; }
+  .rounds-table td.neg { color: var(--neg); font-weight: 600; }
+  .rounds-table strong { font-family: var(--font-display); font-weight: 600; }
+  .round-meta { font-size: .75rem; color: var(--muted); margin-top: 2px; }
+  .tag {
+    display: inline-block; font-size: .66rem; background: var(--accent-soft);
+    color: var(--accent); padding: 1px 6px; border-radius: 4px; margin-left: 4px;
+    font-weight: 700; border: 1px solid var(--gilt); text-transform: lowercase;
+  }
+
+  .segmented { display: flex; gap: 6px; flex-wrap: wrap; }
+  .segmented button {
+    flex: 1; min-width: 0; padding: 10px 4px; font-size: .85rem; font-weight: 600;
+    background: var(--surface-2); border: 1px solid var(--border); color: var(--muted);
+  }
+  .segmented button.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+  .preview {
+    margin-top: 6px; padding: 15px; border-radius: 9px;
+    background: var(--surface-2); border: 1px solid var(--gilt);
+    font-size: .85rem;
+  }
+  .preview .headline { font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; margin-bottom: 9px; }
+  .preview .headline.won { color: var(--pos); }
+  .preview .headline.lost { color: var(--neg); }
+  .preview .dist { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+  .preview .dist span { font-variant-numeric: tabular-nums; }
+  .muted-note { font-size: .75rem; color: var(--muted); margin-top: 8px; }
+
+  .empty { text-align: center; color: var(--muted); padding: 26px 0; font-size: .9rem; }
+  .divider { height: 1px; background: var(--border); margin: 15px 0; border: none; }
+  .top-actions { display: flex; gap: 8px; margin-bottom: 16px; }
+  .top-actions button { flex: 1; }
+  .hint { font-size: .76rem; color: var(--muted); margin-top: 5px; }
+
+  .btn-primary.danger { background: var(--neg); color: #fff; }
+
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(8, 20, 15, .55);
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .modal {
+    background: var(--surface); border: 1px solid var(--gilt);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 20px; max-width: 340px; width: 100%;
+  }
+  .modal-msg { margin: 0 0 16px; font-size: .95rem; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="wordmark">
+      <h1>Tarot</h1>
+      <span class="scorer">Scorer</span>
+    </div>
+    <div class="suitline">
+      <span class="glyphs">&#9824;&#9827;&#9830;&#9829;</span>
+      <span id="gameSub"></span>
+      <span class="rule"></span>
+    </div>
+  </header>
+  <div id="app"></div>
+</div>
+
+<script>
+"use strict";
+
+const STORE = "tarot-game-v1";
+const CONTRACTS = {
+  petite:      { label: "Petite",       mult: 1 },
+  garde:       { label: "Garde",        mult: 2 },
+  gardesans:   { label: "Garde Sans",   mult: 4 },
+  gardecontre: { label: "Garde Contre", mult: 6 },
+};
+const TARGET_BY_BOUTS = { 0: 56, 1: 51, 2: 41, 3: 36 };
+const POIGNEE = { none: 0, simple: 20, double: 30, triple: 40 };
+const MISERE_VALUE = 10;
+const CHELEM = { none: 0, made_announced: 400, made_unannounced: 200, failed_announced: -200 };
+
+let state = load();
+
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE));
+    if (s && s.players) return s;
+  } catch (e) {}
+  return { started: false, players: [], rounds: [], draft: null };
+}
+function save() { localStorage.setItem(STORE, JSON.stringify(state)); }
+
+/* ---------- Scoring ---------- */
+function computeRound(r, playerCount) {
+  const target = TARGET_BY_BOUTS[r.bouts];
+  const diff = r.takerPoints - target;
+  const made = diff >= 0;
+  const sign = made ? 1 : -1;
+  const mult = CONTRACTS[r.contract].mult;
+
+  const petitVal = r.petit === "attack" ? 10 : r.petit === "defense" ? -10 : 0;
+  const contractScore = (25 + Math.abs(diff)) * mult * sign;
+  const petitScore = petitVal * mult;
+
+  const poigneeScore = POIGNEE[r.poignee] * sign;
+  const misereScore = (r.misere === "attack" ? 1 : r.misere === "defense" ? -1 : 0) * MISERE_VALUE;
+  const chelemScore = CHELEM[r.chelem] || 0;
+
+  const attackerTotal = contractScore + petitScore + poigneeScore + misereScore + chelemScore;
+
+  const deltas = new Array(playerCount).fill(0);
+  const t = r.taker;
+  const hasPartner = playerCount === 5 && r.partner !== "" && r.partner != null && Number(r.partner) !== t;
+
+  if (playerCount === 3) {
+    deltas[t] = 2 * attackerTotal;
+    for (let i = 0; i < 3; i++) if (i !== t) deltas[i] = -attackerTotal;
+  } else if (playerCount === 4) {
+    deltas[t] = 3 * attackerTotal;
+    for (let i = 0; i < 4; i++) if (i !== t) deltas[i] = -attackerTotal;
+  } else if (playerCount === 5 && hasPartner) {
+    const p = Number(r.partner);
+    deltas[t] = 2 * attackerTotal;
+    deltas[p] = attackerTotal;
+    for (let i = 0; i < 5; i++) if (i !== t && i !== p) deltas[i] = -attackerTotal;
+  } else if (playerCount === 5) {
+    deltas[t] = 4 * attackerTotal;
+    for (let i = 0; i < 5; i++) if (i !== t) deltas[i] = -attackerTotal;
+  }
+
+  return { target, diff, made, mult, attackerTotal, deltas };
+}
+
+function totals() {
+  const t = new Array(state.players.length).fill(0);
+  for (const r of state.rounds) {
+    const res = computeRound(r, state.players.length);
+    res.deltas.forEach((d, i) => t[i] += d);
+  }
+  return t;
+}
+
+/* ---------- Rendering ---------- */
+const app = document.getElementById("app");
+const gameSub = document.getElementById("gameSub");
+
+function render() {
+  gameSub.textContent = state.started ? `${state.players.length} players · round ${state.rounds.length}` : "keep the tally";
+  if (!state.started) renderSetup();
+  else renderGame();
+}
+
+function renderSetup() {
+  const names = state.players.length ? state.players.map(p => p.name) : ["", "", ""];
+  app.innerHTML = `
+    <div class="card">
+      <h2>New game</h2>
+      <p class="hint" style="margin-bottom:14px">Deal in 3 to 5 players.</p>
+      <div id="playerInputs"></div>
+      <button class="btn-ghost btn-sm" id="addPlayer" style="width:100%;margin-top:4px">+ Add player</button>
+      <hr class="divider">
+      <button class="btn-primary" id="startGame">Start game</button>
+      <p class="hint" id="setupErr" style="color:var(--neg);text-align:center"></p>
+    </div>`;
+
+  const container = document.getElementById("playerInputs");
+  function drawInputs(vals) {
+    container.innerHTML = "";
+    vals.forEach((v, i) => {
+      const row = document.createElement("div");
+      row.className = "player-input-row";
+      row.innerHTML = `
+        <div class="idx">${i + 1}</div>
+        <input type="text" placeholder="Player ${i + 1}" value="${v.replace(/"/g, "&quot;")}" data-i="${i}">
+        ${vals.length > 3 ? `<button class="icon-btn" data-rm="${i}" aria-label="Remove player">×</button>` : ""}`;
+      container.appendChild(row);
+    });
+  }
+  drawInputs(names);
+
+  function readVals() { return [...container.querySelectorAll("input")].map(el => el.value); }
+  container.addEventListener("click", e => {
+    const rm = e.target.dataset.rm;
+    if (rm != null) { const v = readVals(); v.splice(Number(rm), 1); drawInputs(v); }
+  });
+  document.getElementById("addPlayer").onclick = () => {
+    const v = readVals();
+    if (v.length >= 5) return;
+    v.push(""); drawInputs(v);
+  };
+  document.getElementById("startGame").onclick = () => {
+    const v = readVals().map(x => x.trim());
+    const err = document.getElementById("setupErr");
+    if (v.some(x => !x)) { err.textContent = "Every player needs a name."; return; }
+    if (v.length < 3 || v.length > 5) { err.textContent = "Need 3 to 5 players."; return; }
+    state.players = v.map(n => ({ name: n }));
+    state.started = true; state.rounds = [];
+    save(); render();
+  };
+}
+
+function renderGame() {
+  const t = totals();
+  const order = state.players.map((p, i) => ({ i, name: p.name, pts: t[i] })).sort((a, b) => b.pts - a.pts);
+  const maxPts = Math.max(...t);
+
+  app.innerHTML = `
+    <div class="top-actions">
+      <button class="btn-primary" id="newRound">+ New round</button>
+      <button class="btn-ghost" id="resetGame">Reset</button>
+    </div>
+
+    <div class="card">
+      <h2>Standings</h2>
+      <div class="scoreboard">
+        ${order.map((o, rank) => `
+          <div class="score-row ${o.pts === maxPts && state.rounds.length ? "leader" : ""}">
+            <div class="rank">${rank + 1}</div>
+            <div class="name">${esc(o.name)}</div>
+            <div class="pts ${o.pts > 0 ? "pos" : o.pts < 0 ? "neg" : ""}">${fmt(o.pts)}</div>
+          </div>`).join("")}
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Deals</h2>
+      ${state.rounds.length ? roundsTable() : `<div class="empty">No deals yet.<br>Tap “New round” to score the first hand.</div>`}
+    </div>`;
+
+  document.getElementById("newRound").onclick = () => openRoundForm();
+  document.getElementById("resetGame").onclick = async () => {
+    if (await showConfirm("Reset and start a new game? Current scores will be lost.", { yes: "Reset", danger: true })) {
+      state = { started: false, players: state.players.map(p => ({ name: p.name })), rounds: [], draft: null };
+      save(); render();
+    }
+  };
+  app.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => openRoundForm(Number(b.dataset.edit)));
+  app.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
+    const idx = Number(b.dataset.del);
+    if (await showConfirm(`Delete round ${idx + 1}?`, { yes: "Delete", danger: true })) {
+      state.rounds.splice(idx, 1); save(); render();
+    }
+  });
+}
+
+function roundsTable() {
+  const names = state.players.map(p => p.name);
+  return `
+  <div style="overflow-x:auto">
+  <table class="rounds-table">
+    <thead><tr>
+      <th>#</th>
+      ${names.map(n => `<th>${esc(shortName(n))}</th>`).join("")}
+      <th></th>
+    </tr></thead>
+    <tbody>
+      ${state.rounds.map((r, idx) => {
+        const res = computeRound(r, state.players.length);
+        return `<tr>
+          <td>
+            <strong>${idx + 1}</strong>
+            <div class="round-meta">${esc(names[r.taker])} · ${CONTRACTS[r.contract].label}${res.made ? "" : " ✗"}
+            ${r.petit !== "none" ? '<span class="tag">petit</span>' : ""}
+            ${r.poignee !== "none" ? '<span class="tag">poignée</span>' : ""}
+            ${r.misere !== "none" ? '<span class="tag">misère</span>' : ""}
+            ${r.chelem !== "none" ? '<span class="tag">chelem</span>' : ""}
+            </div>
+          </td>
+          ${res.deltas.map(d => `<td class="${d > 0 ? "pos" : d < 0 ? "neg" : ""}">${fmt(d)}</td>`).join("")}
+          <td style="white-space:nowrap">
+            <button class="btn-ghost btn-sm" data-edit="${idx}" style="padding:4px 7px" aria-label="Edit round">✎</button>
+            <button class="btn-danger btn-sm" data-del="${idx}" style="padding:4px 7px" aria-label="Delete round">✕</button>
+          </td>
+        </tr>`;
+      }).join("")}
+    </tbody>
+  </table>
+  </div>`;
+}
+
+/* ---------- Round form ---------- */
+function openRoundForm(editIndex) {
+  const pc = state.players.length;
+  const editing = editIndex != null && state.rounds[editIndex];
+  const r0 = editing ? state.rounds[editIndex] : null;
+  const opts = state.players.map((p, i) => `<option value="${i}">${esc(p.name)}</option>`).join("");
+
+  app.innerHTML = `
+    <div class="card">
+      <h2>${editing ? "Edit round " + (editIndex + 1) : "New round"}</h2>
+
+      <div class="field">
+        <label>Taker</label>
+        <select id="taker">${opts}</select>
+      </div>
+
+      ${pc === 5 ? `
+      <div class="field">
+        <label>Partner (called king)</label>
+        <select id="partner">
+          <option value="">— Taker plays alone —</option>
+          ${opts}
+        </select>
+        <p class="hint">Whoever holds the called king. Choose “alone” if the taker called their own.</p>
+      </div>` : ""}
+
+      <div class="field">
+        <label>Contract</label>
+        <div class="segmented" id="contract">
+          ${Object.entries(CONTRACTS).map(([k, c], i) =>
+            `<button data-v="${k}" class="${i === 0 ? "active" : ""}">${c.label}</button>`).join("")}
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Oudlers (bouts) held by taker's side</label>
+        <div class="segmented" id="bouts">
+          ${[0, 1, 2, 3].map((n, i) => `<button data-v="${n}" class="${i === 0 ? "active" : ""}">${n}</button>`).join("")}
+        </div>
+        <p class="hint" id="targetHint"></p>
+      </div>
+
+      <div class="field">
+        <label>Card points won by taker's side (0–91)</label>
+        <input type="number" id="takerPoints" min="0" max="91" step="0.5" inputmode="decimal" value="0">
+      </div>
+
+      <div class="field">
+        <label>Petit au bout (petit won on last trick)</label>
+        <div class="segmented" id="petit">
+          <button data-v="none" class="active">None</button>
+          <button data-v="attack">Taker's side</button>
+          <button data-v="defense">Defense</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>Poignée</label>
+          <select id="poignee">
+            <option value="none">None</option>
+            <option value="simple">Simple (+20)</option>
+            <option value="double">Double (+30)</option>
+            <option value="triple">Triple (+40)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Misère</label>
+          <select id="misere">
+            <option value="none">None</option>
+            <option value="attack">Taker's side (+10)</option>
+            <option value="defense">Defense (+10)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Chelem (slam) — optional</label>
+        <select id="chelem">
+          <option value="none">None</option>
+          <option value="made_announced">Made, announced (+400)</option>
+          <option value="made_unannounced">Made, not announced (+200)</option>
+          <option value="failed_announced">Announced but failed (−200)</option>
+        </select>
+      </div>
+
+      <div class="preview" id="preview"></div>
+
+      <p class="hint" id="roundErr" style="color:var(--neg);text-align:center"></p>
+      <hr class="divider">
+      <div class="row">
+        <button class="btn-ghost" id="cancelRound">Cancel</button>
+        <button class="btn-primary" id="saveRound">${editing ? "Update round" : "Save round"}</button>
+      </div>
+    </div>`;
+
+  if (editing) {
+    document.getElementById("taker").value = r0.taker;
+    if (pc === 5) document.getElementById("partner").value = r0.partner;
+    setSeg("contract", r0.contract);
+    setSeg("bouts", r0.bouts);
+    document.getElementById("takerPoints").value = r0.takerPoints;
+    setSeg("petit", r0.petit);
+    document.getElementById("poignee").value = r0.poignee;
+    document.getElementById("misere").value = r0.misere;
+    document.getElementById("chelem").value = r0.chelem;
+  }
+
+  app.querySelectorAll(".segmented").forEach(seg => {
+    seg.addEventListener("click", e => {
+      const b = e.target.closest("button[data-v]");
+      if (!b) return;
+      seg.querySelectorAll("button").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+      updatePreview();
+    });
+  });
+  ["taker", "partner", "takerPoints", "poignee", "misere", "chelem"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("input", updatePreview);
+  });
+
+  function readForm() {
+    const seg = id => document.querySelector(`#${id} button.active`).dataset.v;
+    return {
+      taker: Number(document.getElementById("taker").value),
+      partner: pc === 5 ? document.getElementById("partner").value : "",
+      contract: seg("contract"),
+      bouts: Number(seg("bouts")),
+      takerPoints: Math.max(0, Math.min(91, Number(document.getElementById("takerPoints").value) || 0)),
+      petit: seg("petit"),
+      poignee: document.getElementById("poignee").value,
+      misere: document.getElementById("misere").value,
+      chelem: document.getElementById("chelem").value,
+    };
+  }
+
+  function updatePreview() {
+    const r = readForm();
+    const res = computeRound(r, pc);
+    document.getElementById("targetHint").textContent = `Target to win: ${TARGET_BY_BOUTS[r.bouts]} points`;
+    const names = state.players.map(p => p.name);
+    const gap = Math.abs(res.diff);
+    document.getElementById("preview").innerHTML = `
+      <div class="headline ${res.made ? "won" : "lost"}">
+        ${res.made ? "Contract made" : "Contract failed"} — ${res.made ? "+" : "−"}${gap} pts vs target
+      </div>
+      <div class="dist">
+        ${res.deltas.map((d, i) =>
+          `<span><strong>${esc(names[i])}</strong>: <span class="${d > 0 ? "pts pos" : d < 0 ? "pts neg" : ""}">${fmt(d)}</span></span>`).join("")}
+      </div>
+      <div class="muted-note">Base value: ${fmt(Math.abs(res.attackerTotal))} × contract distribution</div>`;
+  }
+  updatePreview();
+
+  document.getElementById("cancelRound").onclick = () => render();
+  document.getElementById("saveRound").onclick = () => {
+    const r = readForm();
+    if (pc === 5 && r.partner !== "" && Number(r.partner) === r.taker) {
+      document.getElementById("roundErr").textContent = "Partner can't be the taker. Choose another player or “plays alone”.";
+      return;
+    }
+    if (editing) state.rounds[editIndex] = r;
+    else state.rounds.push(r);
+    save(); render();
+  };
+}
+
+/* ---------- Dialog ---------- */
+function showConfirm(message, opts = {}) {
+  return new Promise(resolve => {
+    const ov = document.createElement("div");
+    ov.className = "modal-overlay";
+    ov.innerHTML = `
+      <div class="modal" role="dialog" aria-modal="true">
+        <p class="modal-msg">${esc(message)}</p>
+        <div class="row">
+          <button class="btn-ghost" data-no>Cancel</button>
+          <button class="btn-primary ${opts.danger ? "danger" : ""}" data-yes>${esc(opts.yes || "Confirm")}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    const close = v => { ov.remove(); resolve(v); };
+    ov.querySelector("[data-yes]").onclick = () => close(true);
+    ov.querySelector("[data-no]").onclick = () => close(false);
+    ov.addEventListener("click", e => { if (e.target === ov) close(false); });
+  });
+}
+
+function setSeg(id, val) {
+  document.getElementById(id).querySelectorAll("button").forEach(b =>
+    b.classList.toggle("active", b.dataset.v === String(val)));
+}
+
+/* ---------- helpers ---------- */
+function fmt(n) { return (n > 0 ? "+" : "") + (Math.round(n * 10) / 10); }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function shortName(n) { return n.length > 6 ? n.slice(0, 5) + "…" : n; }
+
+render();
+</script>
+</body>
+</html>
