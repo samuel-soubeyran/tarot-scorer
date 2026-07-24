@@ -407,16 +407,63 @@ function totals() {
 
 /* ---------- Film quotes ---------- */
 const QUOTES = [
-  { q: "Faut reconnaître… c'est du brutal.", f: "Les Tontons flingueurs" },
+  // Les Tontons flingueurs (1963)
+  { q: "Faut reconnaître… c'est du brutal !", f: "Les Tontons flingueurs" },
   { q: "Les cons, ça ose tout. C'est même à ça qu'on les reconnaît.", f: "Les Tontons flingueurs" },
+  { q: "Aux quatre coins de Paris qu'on va le retrouver, éparpillé par petits bouts, façon puzzle.", f: "Les Tontons flingueurs" },
+  { q: "Moi, quand on m'en fait trop, je correctionne plus, je dynamite, je disperse et je ventile.", f: "Les Tontons flingueurs" },
+  { q: "C'est curieux chez les marins, ce besoin de faire des phrases.", f: "Les Tontons flingueurs" },
+  { q: "On ne devrait jamais quitter Montauban.", f: "Les Tontons flingueurs" },
+  { q: "J'ai connu une Polonaise qu'en prenait au petit déjeuner. Faut quand même admettre que c'est plutôt une boisson d'homme.", f: "Les Tontons flingueurs" },
+  { q: "Tiens, vous avez sorti le vitriol ?", f: "Les Tontons flingueurs" },
+  { q: "Mais dis donc, on est tout de même pas venu pour beurrer les sandwiches !", f: "Les Tontons flingueurs" },
+  { q: "Si on bricolait plus souvent, on aurait moins la tête aux bêtises.", f: "Les Tontons flingueurs" },
+  { q: "Mais il connaît pas Raoul, ce mec ! Il va avoir un réveil pénible.", f: "Les Tontons flingueurs" },
+  { q: "Y a des impulsifs qui téléphonent, d'autres qui se déplacent.", f: "Les Tontons flingueurs" },
   { q: "J'aime pas les histoires de fou, ça me fait peur.", f: "Les Tontons flingueurs" },
-  { q: "Le monde a besoin d'hommes comme moi.", f: "OSS 117" },
-  { q: "Réfléchir, c'est déjà désobéir.", f: "OSS 117" },
-  { q: "Mais tout va très bien se passer, faites-moi confiance.", f: "OSS 117" },
-  { q: "Sur un malentendu, ça peut marcher.", f: "Les Bronzés font du ski" },
-  { q: "Quand te reverrai-je, pays merveilleux…", f: "Les Bronzés" },
-  { q: "Je te casse.", f: "Brice de Nice" },
+
+  // OSS 117 (Dujardin / Hazanavicius)
+  { q: "J'aime me beurrer la biscotte.", f: "OSS 117" },
+  { q: "En tout cas, on peut dire que le Soviet éponge !", f: "OSS 117" },
+  { q: "Je n'ai jamais pu refuser quoi que ce soit à une brune aux yeux marron.", f: "OSS 117" },
+  { q: "Fonce, Slimane ! Fonce !", f: "OSS 117" },
+  { q: "23 à zéro ! C'est la piquette, Jack !", f: "OSS 117" },
+  { q: "Ne pas fumer me tue.", f: "OSS 117" },
+  { q: "J'aime quand on m'enduit d'huile.", f: "OSS 117" },
+  { q: "D'aucuns ont des aventures… Je suis une aventure.", f: "OSS 117" },
+  { q: "Je ne vois pas l'intérêt de ressembler à un homme.", f: "OSS 117" },
+  { q: "Tous les nazis n'étaient pas SS, Dolorès. Attention aux raccourcis.", f: "OSS 117" },
+  { q: "Changer le monde, changer le monde… vous êtes bien sympathiques mais faudrait déjà vous lever le matin.", f: "OSS 117" },
+  { q: "C'est marrant, c'est toujours les nazis qui ont le mauvais rôle.", f: "OSS 117" },
+  { q: "On est en 1955 les gars, faut se réveiller. Les ânes partout, les djellabas, l'écriture illisible, ça va hein ! S'agirait de grandir !", f: "OSS 117" },
+
+  // Les Bronzés (Splendid)
+  { q: "Sur un malentendu, ça peut marcher.", f: "Les Bronzés" },
+  { q: "Oublie que t'as aucune chance, vas-y, fonce ! On sait jamais, sur un malentendu ça peut marcher…", f: "Les Bronzés" },
+  { q: "Quand te reverrai-je, pays merveilleux, où ceux qui s'aiment vivent à deux…", f: "Les Bronzés" },
+  { q: "Je sens que ce soir, je vais conclure.", f: "Les Bronzés" },
+  { q: "Je sais pas ce qui me retient de te casser la gueule ! La trouille, non ? Ouais, ça doit être ça.", f: "Les Bronzés" },
+  { q: "Excusez-moi, mais vous êtes en train d'uriner sur ma voiture.", f: "Les Bronzés" },
+  { q: "Ce qui ne va pas, monsieur Dusse, c'est le planter du bâton.", f: "Les Bronzés" },
+  { q: "Mais je vais te le planter, moi, le bâton !", f: "Les Bronzés" },
+  { q: "Dusse, avec un D comme Dusse.", f: "Les Bronzés" },
+  { q: "Mais bouffez-le, votre cochon !", f: "Les Bronzés" },
+  { q: "C'est quoi, les petits trucs blancs dedans ?", f: "Les Bronzés" },
+
+  // Brice de Nice (2005)
+  { q: "Ça farte ?", f: "Brice de Nice" },
+  { q: "Je t'ai cassé !", f: "Brice de Nice" },
   { q: "Je suis pas venu pour souffrir, OK ?", f: "Brice de Nice" },
+  { q: "Tu es comme le H de Hawaï, tu sers à rien !", f: "Brice de Nice" },
+  { q: "Pas de violence, c'est les vacances !", f: "Brice de Nice" },
+  { q: "Je te fascine hein ? Allez viens, on parle de moi !", f: "Brice de Nice" },
+  { q: "Moi le matin, je casse le vent, je fais chier les gens, ça me purifie c'est important.", f: "Brice de Nice" },
+  { q: "Point Break, un mec, quand il voit ce film, il devient bilingue en surf !", f: "Brice de Nice" },
+  { q: "Je respecte ton avis, mais en même temps c'est pas le mien, donc c'est pas le bon.", f: "Brice de Nice" },
+  { q: "Faux ! Faux ! Complètement faux ! J'ai envie de te dire menteur !", f: "Brice de Nice" },
+  { q: "Je m'appelle Brice, je viens de Nice.", f: "Brice de Nice" },
+  { q: "Aujourd'hui, pour être fun et bigarré, frais et bien formé, il te faut savoir casser !", f: "Brice de Nice" },
+  { q: "Excuse ma belle, l'histoire m'appelle.", f: "Brice de Nice" },
 ];
 let lastQuote = -1;
 function showQuote() {
