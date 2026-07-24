@@ -250,6 +250,13 @@
   details.bonuses[open] > summary::before { content: "− "; }
   details.bonuses[open] { padding-bottom: 4px; }
 
+  .film-quote {
+    margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 5px; text-align: center;
+  }
+  .film-quote .q { font-family: var(--font-display); font-style: italic; color: var(--muted); font-size: .95rem; text-wrap: balance; }
+  .film-quote .f { font-size: .66rem; text-transform: uppercase; letter-spacing: .09em; color: var(--accent); font-weight: 700; }
+
   .btn-primary.danger { background: var(--neg); color: #fff; }
 
   .modal-overlay {
@@ -281,6 +288,7 @@
     </div>
   </header>
   <div id="app"></div>
+  <footer class="film-quote" id="quote"></footer>
 </div>
 
 <script>
@@ -397,6 +405,29 @@ function totals() {
   return t;
 }
 
+/* ---------- Film quotes ---------- */
+const QUOTES = [
+  { q: "Faut reconnaître… c'est du brutal.", f: "Les Tontons flingueurs" },
+  { q: "Les cons, ça ose tout. C'est même à ça qu'on les reconnaît.", f: "Les Tontons flingueurs" },
+  { q: "J'aime pas les histoires de fou, ça me fait peur.", f: "Les Tontons flingueurs" },
+  { q: "Le monde a besoin d'hommes comme moi.", f: "OSS 117" },
+  { q: "Réfléchir, c'est déjà désobéir.", f: "OSS 117" },
+  { q: "Mais tout va très bien se passer, faites-moi confiance.", f: "OSS 117" },
+  { q: "Sur un malentendu, ça peut marcher.", f: "Les Bronzés font du ski" },
+  { q: "Quand te reverrai-je, pays merveilleux…", f: "Les Bronzés" },
+  { q: "Je te casse.", f: "Brice de Nice" },
+  { q: "Je suis pas venu pour souffrir, OK ?", f: "Brice de Nice" },
+];
+let lastQuote = -1;
+function showQuote() {
+  const el = document.getElementById("quote");
+  if (!el) return;
+  let i;
+  do { i = Math.floor(Math.random() * QUOTES.length); } while (QUOTES.length > 1 && i === lastQuote);
+  lastQuote = i;
+  el.innerHTML = `<span class="q">« ${esc(QUOTES[i].q)} »</span><span class="f">${esc(QUOTES[i].f)}</span>`;
+}
+
 /* ---------- Rendering ---------- */
 const app = document.getElementById("app");
 const gameSub = document.getElementById("gameSub");
@@ -405,6 +436,7 @@ function render() {
   gameSub.textContent = state.started ? `${state.players.length} players · round ${state.rounds.length}` : "keep the tally";
   if (!state.started) renderSetup();
   else renderGame();
+  showQuote();
 }
 
 function renderSetup() {
@@ -775,6 +807,7 @@ function openRoundForm(editIndex) {
   renderChips();
   renderTP();
   updatePreview();
+  showQuote();
 
   document.getElementById("cancelRound").onclick = () => render();
   document.getElementById("saveRound").onclick = () => {
