@@ -232,6 +232,24 @@
   .rotation-note { font-size: .78rem; color: var(--muted); margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
   .rotation-note b { color: var(--text); font-weight: 600; }
 
+  .points-pair > div { display: flex; flex-direction: column; gap: 5px; }
+  .points-pair input { text-align: center; font-variant-numeric: tabular-nums; font-size: 1.25rem; font-family: var(--font-display); }
+  .points-pair span { text-align: center; font-size: .72rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+
+  details.bonuses {
+    border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2);
+    padding: 0 14px; margin-bottom: 15px;
+  }
+  details.bonuses > summary {
+    list-style: none; cursor: pointer; padding: 13px 0;
+    font-size: .72rem; font-weight: 700; color: var(--accent);
+    text-transform: uppercase; letter-spacing: .06em;
+  }
+  details.bonuses > summary::-webkit-details-marker { display: none; }
+  details.bonuses > summary::before { content: "+ "; }
+  details.bonuses[open] > summary::before { content: "− "; }
+  details.bonuses[open] { padding-bottom: 4px; }
+
   .btn-primary.danger { background: var(--neg); color: #fff; }
 
   .modal-overlay {
@@ -533,7 +551,8 @@ function openRoundForm(editIndex) {
   const editing = editIndex != null && state.rounds[editIndex];
   const r0 = editing ? state.rounds[editIndex] : null;
 
-  const selected = new Set(editing ? r0.players : rotationForRound(state.rounds.length));
+  const showChips = state.players.length > 5;
+  const selected = new Set(editing ? r0.players : (showChips ? rotationForRound(state.rounds.length) : state.players.map(p => p.id)));
   let takerVal = editing ? r0.taker : orderedIds(selected)[0];
   let partnerVal = editing ? (r0.partner === "" ? "" : Number(r0.partner)) : "";
 
@@ -541,11 +560,12 @@ function openRoundForm(editIndex) {
     <div class="card">
       <h2>${editing ? "Edit round " + (editIndex + 1) : "New round"}</h2>
 
+      ${showChips ? `
       <div class="field">
         <label>Playing this round (3–5)</label>
         <div class="chips" id="playing"></div>
         <p class="hint" id="playCount"></p>
-      </div>
+      </div>` : ""}
 
       <div id="tpFields"></div>
 
@@ -566,17 +586,17 @@ function openRoundForm(editIndex) {
       </div>
 
       <div class="field">
-        <label>Card points (91 total) — enter for</label>
-        <div class="segmented" id="pointsSide">
-          <button data-v="taker" class="active">Taker's side</button>
-          <button data-v="defense">Defense</button>
+        <label>Card points won (auto-totals to 91)</label>
+        <div class="row points-pair">
+          <div>
+            <input type="number" id="pTaker" min="0" max="91" step="0.5" inputmode="decimal" value="0" aria-label="Taker's side points">
+            <span>Taker's side</span>
+          </div>
+          <div>
+            <input type="number" id="pOpp" min="0" max="91" step="0.5" inputmode="decimal" value="91" aria-label="Opponents' points">
+            <span>Opponents</span>
+          </div>
         </div>
-      </div>
-
-      <div class="field">
-        <label id="pointsLabel">Taker's side points</label>
-        <input type="number" id="pointsInput" min="0" max="91" step="0.5" inputmode="decimal" value="0">
-        <p class="hint" id="pointsOther"></p>
       </div>
 
       <div class="field">
@@ -588,35 +608,37 @@ function openRoundForm(editIndex) {
         </div>
       </div>
 
-      <div class="row">
-        <div class="field">
-          <label>Poignée</label>
-          <select id="poignee">
+      <details class="bonuses" id="bonusBox">
+        <summary>Bonuses — poignée, misère, slam</summary>
+        <div class="row" style="margin-top:12px">
+          <div class="field">
+            <label>Poignée</label>
+            <select id="poignee">
+              <option value="none">None</option>
+              <option value="simple">Simple (+20)</option>
+              <option value="double">Double (+30)</option>
+              <option value="triple">Triple (+40)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Misère</label>
+            <select id="misere">
+              <option value="none">None</option>
+              <option value="attack">Taker's side (+10)</option>
+              <option value="defense">Defense (+10)</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:6px">
+          <label>Chelem (slam)</label>
+          <select id="chelem">
             <option value="none">None</option>
-            <option value="simple">Simple (+20)</option>
-            <option value="double">Double (+30)</option>
-            <option value="triple">Triple (+40)</option>
+            <option value="made_announced">Made, announced (+400)</option>
+            <option value="made_unannounced">Made, not announced (+200)</option>
+            <option value="failed_announced">Announced but failed (−200)</option>
           </select>
         </div>
-        <div class="field">
-          <label>Misère</label>
-          <select id="misere">
-            <option value="none">None</option>
-            <option value="attack">Taker's side (+10)</option>
-            <option value="defense">Defense (+10)</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="field">
-        <label>Chelem (slam) — optional</label>
-        <select id="chelem">
-          <option value="none">None</option>
-          <option value="made_announced">Made, announced (+400)</option>
-          <option value="made_unannounced">Made, not announced (+200)</option>
-          <option value="failed_announced">Announced but failed (−200)</option>
-        </select>
-      </div>
+      </details>
 
       <div class="preview" id="preview"></div>
 
@@ -632,11 +654,13 @@ function openRoundForm(editIndex) {
     setSeg("contract", r0.contract);
     setSeg("bouts", r0.bouts);
     setSeg("petit", r0.petit);
-    setSeg("pointsSide", "taker");
-    document.getElementById("pointsInput").value = r0.takerPoints;
+    document.getElementById("pTaker").value = r0.takerPoints;
+    document.getElementById("pOpp").value = 91 - r0.takerPoints;
     document.getElementById("poignee").value = r0.poignee;
     document.getElementById("misere").value = r0.misere;
     document.getElementById("chelem").value = r0.chelem;
+    if (r0.poignee !== "none" || r0.misere !== "none" || r0.chelem !== "none")
+      document.getElementById("bonusBox").open = true;
   }
 
   const playingEl = document.getElementById("playing");
@@ -644,6 +668,7 @@ function openRoundForm(editIndex) {
   const playCountEl = document.getElementById("playCount");
 
   function renderChips() {
+    if (!playingEl) return;
     playingEl.innerHTML = state.players.map((p, i) =>
       `<button type="button" class="chip ${selected.has(p.id) ? "on" : ""}" data-id="${p.id}">
         <span class="seat">${i + 1}</span>${esc(p.name)}</button>`).join("");
@@ -697,8 +722,14 @@ function openRoundForm(editIndex) {
       updatePreview();
     });
   });
-  ["pointsInput", "poignee", "misere", "chelem"].forEach(id =>
+  ["poignee", "misere", "chelem"].forEach(id =>
     document.getElementById(id).addEventListener("input", updatePreview));
+
+  const clampPts = v => Math.max(0, Math.min(91, Number(v) || 0));
+  const pTakerEl = document.getElementById("pTaker");
+  const pOppEl = document.getElementById("pOpp");
+  pTakerEl.addEventListener("input", () => { pOppEl.value = 91 - clampPts(pTakerEl.value); updatePreview(); });
+  pOppEl.addEventListener("input", () => { pTakerEl.value = 91 - clampPts(pOppEl.value); updatePreview(); });
 
   function readForm() {
     const seg = id => document.querySelector(`#${id} button.active`).dataset.v;
@@ -717,18 +748,10 @@ function openRoundForm(editIndex) {
   }
 
   function readTakerPoints() {
-    const side = document.querySelector("#pointsSide button.active").dataset.v;
-    const raw = Math.max(0, Math.min(91, Number(document.getElementById("pointsInput").value) || 0));
-    return side === "taker" ? raw : 91 - raw;
+    return Math.max(0, Math.min(91, Number(document.getElementById("pTaker").value) || 0));
   }
 
   function updatePreview() {
-    const side = document.querySelector("#pointsSide button.active").dataset.v;
-    const raw = Math.max(0, Math.min(91, Number(document.getElementById("pointsInput").value) || 0));
-    document.getElementById("pointsLabel").textContent = side === "taker" ? "Taker's side points" : "Defense points";
-    document.getElementById("pointsOther").textContent = side === "taker"
-      ? `Defense gets ${91 - raw} · taker's target from oudlers below`
-      : `Taker's side gets ${91 - raw}`;
     const r = readForm();
     document.getElementById("targetHint").textContent = `Target to win: ${TARGET_BY_BOUTS[r.bouts]} points`;
     const box = document.getElementById("preview");
