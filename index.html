@@ -566,8 +566,17 @@ function openRoundForm(editIndex) {
       </div>
 
       <div class="field">
-        <label>Card points won by taker's side (0–91)</label>
-        <input type="number" id="takerPoints" min="0" max="91" step="0.5" inputmode="decimal" value="0">
+        <label>Card points (91 total) — enter for</label>
+        <div class="segmented" id="pointsSide">
+          <button data-v="taker" class="active">Taker's side</button>
+          <button data-v="defense">Defense</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label id="pointsLabel">Taker's side points</label>
+        <input type="number" id="pointsInput" min="0" max="91" step="0.5" inputmode="decimal" value="0">
+        <p class="hint" id="pointsOther"></p>
       </div>
 
       <div class="field">
@@ -622,8 +631,9 @@ function openRoundForm(editIndex) {
   if (editing) {
     setSeg("contract", r0.contract);
     setSeg("bouts", r0.bouts);
-    document.getElementById("takerPoints").value = r0.takerPoints;
     setSeg("petit", r0.petit);
+    setSeg("pointsSide", "taker");
+    document.getElementById("pointsInput").value = r0.takerPoints;
     document.getElementById("poignee").value = r0.poignee;
     document.getElementById("misere").value = r0.misere;
     document.getElementById("chelem").value = r0.chelem;
@@ -687,7 +697,7 @@ function openRoundForm(editIndex) {
       updatePreview();
     });
   });
-  ["takerPoints", "poignee", "misere", "chelem"].forEach(id =>
+  ["pointsInput", "poignee", "misere", "chelem"].forEach(id =>
     document.getElementById(id).addEventListener("input", updatePreview));
 
   function readForm() {
@@ -698,7 +708,7 @@ function openRoundForm(editIndex) {
       partner: selected.size === 5 ? partnerVal : "",
       contract: seg("contract"),
       bouts: Number(seg("bouts")),
-      takerPoints: Math.max(0, Math.min(91, Number(document.getElementById("takerPoints").value) || 0)),
+      takerPoints: readTakerPoints(),
       petit: seg("petit"),
       poignee: document.getElementById("poignee").value,
       misere: document.getElementById("misere").value,
@@ -706,7 +716,19 @@ function openRoundForm(editIndex) {
     };
   }
 
+  function readTakerPoints() {
+    const side = document.querySelector("#pointsSide button.active").dataset.v;
+    const raw = Math.max(0, Math.min(91, Number(document.getElementById("pointsInput").value) || 0));
+    return side === "taker" ? raw : 91 - raw;
+  }
+
   function updatePreview() {
+    const side = document.querySelector("#pointsSide button.active").dataset.v;
+    const raw = Math.max(0, Math.min(91, Number(document.getElementById("pointsInput").value) || 0));
+    document.getElementById("pointsLabel").textContent = side === "taker" ? "Taker's side points" : "Defense points";
+    document.getElementById("pointsOther").textContent = side === "taker"
+      ? `Defense gets ${91 - raw} · taker's target from oudlers below`
+      : `Taker's side gets ${91 - raw}`;
     const r = readForm();
     document.getElementById("targetHint").textContent = `Target to win: ${TARGET_BY_BOUTS[r.bouts]} points`;
     const box = document.getElementById("preview");
